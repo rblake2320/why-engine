@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rblake2320/why-engine/schemas/whycase.schema.json",
+  "title": "WhyCase",
+  "type": "object",
+  "required": [
+    "caseId",
+    "idempotencyKey",
+    "createdAt",
+    "title",
+    "rootCause",
+    "whyNotCaught",
+    "whyFixWorked",
+    "preventNextTime",
+    "sensitivity",
+    "secretScanResult"
+  ],
+  "properties": {
+    "caseId": { "type": "string" },
+    "idempotencyKey": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "title": { "type": "string" },
+    "rootCause": { "type": "string" },
+    "whyNotCaught": { "type": "string" },
+    "whyFixWorked": { "type": "string" },
+    "preventNextTime": { "type": "string" },
+    "generalizablePattern": { "type": ["string", "null"] },
+    "sensitivity": { "type": "string", "enum": ["public", "internal", "restricted"] },
+    "secretScanResult": {
+      "type": "object",
+      "required": ["clean", "secretsFound", "redactionsApplied"],
+      "properties": {
+        "clean": { "type": "boolean" },
+        "secretsFound": { "type": "integer" },
+        "redactionsApplied": { "type": "integer" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

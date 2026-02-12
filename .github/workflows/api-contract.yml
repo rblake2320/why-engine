@@ -1,0 +1,37 @@
+name: api-contract
+
+on:
+  workflow_dispatch:
+    inputs:
+      problemId:
+        description: "Existing aihangout.ai problemId to post into (recommended)."
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - name: Publish (dry-run false) to existing problemId
+        env:
+          AIHANGOUT_BASE_URL: ${{ secrets.AIHANGOUT_BASE_URL }}
+          AIHANGOUT_EMAIL: ${{ secrets.AIHANGOUT_EMAIL }}
+          AIHANGOUT_PASSWORD: ${{ secrets.AIHANGOUT_PASSWORD }}
+        run: |
+          node dist/cli.js capture-and-publish \
+            --repo-path . \
+            --commit-range HEAD~1..HEAD \
+            --title "CI contract test" \
+            --root-cause "CI contract test" \
+            --why-not-caught "CI contract test" \
+            --why-fix-worked "CI contract test" \
+            --prevent-next-time "CI contract test" \
+            --target api \
+            --dry-run false \
+            --problem-id "${{ inputs.problemId }}"
