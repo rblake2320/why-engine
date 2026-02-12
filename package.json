@@ -1,6 +1,6 @@
 {
   "name": "why-engine",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Standalone CLI + MCP server for capturing root-cause analyses, sanitizing evidence, and publishing safe, idempotent why cases.",
   "license": "MIT",
