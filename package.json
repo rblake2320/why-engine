@@ -1,0 +1,21 @@
+{
+  "name": "why-engine",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Standalone Why Engine for incident root-cause capture and publishing",
+  "bin": {
+    "why-engine": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/**/*.cjs"
+  },
+  "dependencies": {
+    "zod": "^3.24.1",
+    "@modelcontextprotocol/sdk": "^1.26.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/node": "^22.10.7"
+  }
+}
