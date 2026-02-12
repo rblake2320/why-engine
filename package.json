@@ -1,6 +1,6 @@
 {
   "name": "why-engine",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Standalone CLI + MCP server for capturing root-cause analyses, sanitizing evidence, and publishing safe, idempotent why cases.",
   "license": "MIT",
@@ -20,7 +20,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/**/*.cjs",
+    "test": "npm run build && node scripts/run-tests.mjs",
     "verify": "node scripts/verify-outbox.mjs",
     "start:mcp": "node dist/mcp/server.js"
   },
