@@ -124,6 +124,37 @@ test("outbox dedupe uses idempotencyKey", async () => {
   assert.doesNotMatch(first.outboxResult.path, /history/);
 });
 
+test("outbox publish does not create API dedupe ledger", async () => {
+  const repoDir = initRepo();
+  const whyCase = analyzeWhyCase({
+    repoPath: repoDir,
+    title: "Leak",
+    rootCause: "token=supersecret",
+    whyNotCaught: "No scanner",
+    whyFixWorked: "Added scanner",
+    preventNextTime: "Keep scanners",
+    sensitivity: "restricted"
+  });
+
+  const outboxResult = await publishWhyCase({
+    repoPath: repoDir,
+    caseId: whyCase.caseId,
+    target: "outbox",
+    dryRun: false
+  });
+  assert.strictEqual(outboxResult.outboxResult.written, true);
+
+  const apiResult = await publishWhyCase({
+    repoPath: repoDir,
+    caseId: whyCase.caseId,
+    target: "api",
+    dryRun: false
+  });
+  assert.strictEqual(apiResult.deduped, undefined);
+  assert.strictEqual(apiResult.apiResult.success, false);
+  assert.match(apiResult.apiResult.error, /blocked/i);
+});
+
 test("api publish blocked when secrets found", async () => {
   const repoDir = initRepo();
   const whyCase = analyzeWhyCase({

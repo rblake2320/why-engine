@@ -102,10 +102,6 @@ export async function publishWhyCase(input: PublishInput): Promise<PublishResult
 
   result.outboxResult = outboxResult;
 
-  if (outboxResult?.written) {
-    writePublishedLedger(input.repoPath, redactedCase, undefined, hashContent(JSON.stringify(redactedCase)));
-  }
-
   if (input.target === "api" || input.target === "both") {
     const apiBlockedByGitleaks =
       mode === "block" ? gitleaksTotal > 0 : gitleaksUnallowlisted > 0;
