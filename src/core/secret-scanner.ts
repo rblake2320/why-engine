@@ -41,6 +41,11 @@ const SECRET_RULES: Array<{ id: string; description: string; regex: RegExp }> = 
     regex: /-----BEGIN[\s\S]*PRIVATE KEY-----/g
   },
   {
+    id: "stripe-key",
+    description: "Stripe API key",
+    regex: /sk_(live|test)_[A-Za-z0-9]{24,}/g
+  },
+  {
     id: "github-token",
     description: "GitHub token",
     regex: /gh[pousr]_[A-Za-z0-9_]{36,}/g
