@@ -22,7 +22,7 @@ export default function CaseCard({ wc, repoPath }: { wc: WhyCase; repoPath: stri
     <div className="card hover:border-teal-500/30 transition-colors group">
       <div className="flex items-start justify-between gap-3 mb-3">
         <Link
-          to={`/cases/${wc.caseId}?repoPath=${encodeURIComponent(repoPath)}`}
+          to={`/cases/${wc.idempotencyKey}?repoPath=${encodeURIComponent(repoPath)}`}
           className="font-semibold text-slate-100 group-hover:text-teal-400 transition-colors leading-tight line-clamp-2"
         >
           {wc.title}

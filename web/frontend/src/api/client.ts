@@ -74,6 +74,12 @@ export interface CaptureRequest {
   sensitivity?: "public" | "internal" | "restricted";
   target?: "api" | "outbox" | "both";
   dryRun?: boolean;
+  problemId?: string;
+  evidenceLink?: string;
+  forceStub?: boolean;
+  allowSecrets?: boolean;
+  gitleaksMode?: "block" | "warn" | "ignoreFingerprints";
+  keepHistory?: boolean;
 }
 
 export interface AnalyzeRequest {
@@ -97,5 +103,9 @@ export interface PublishRequest {
   target?: "api" | "outbox" | "both";
   dryRun?: boolean;
   problemId?: string;
+  evidenceLink?: string;
+  forceStub?: boolean;
+  allowSecrets?: boolean;
+  gitleaksMode?: "block" | "warn" | "ignoreFingerprints";
   keepHistory?: boolean;
 }

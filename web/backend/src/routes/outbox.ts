@@ -36,12 +36,40 @@ outboxRouter.get("/", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-outboxRouter.get("/:caseId", async (req: Request, res: Response): Promise<void> => {
+outboxRouter.get("/:caseIdOrKey", async (req: Request, res: Response): Promise<void> => {
   const repoPath = req.query["repoPath"] as string;
   if (!repoPath) { res.status(400).json({ error: "repoPath query param required" }); return; }
 
-  const filePath = path.join(repoPath, ".why-engine", "outbox", `${req.params["caseId"]}.json`);
-  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "Case not found" }); return; }
+  const outboxDir = path.join(repoPath, ".why-engine", "outbox");
+  let filePath = path.join(outboxDir, `${req.params["caseIdOrKey"]}.json`);
+
+  if (!fs.existsSync(filePath)) {
+    // If not found by key, try searching for a file that contains this caseId inside
+    if (fs.existsSync(outboxDir)) {
+      const files = fs.readdirSync(outboxDir).filter(f => f.endsWith(".json") && !f.startsWith("ledger"));
+      let found = false;
+      for (const file of files) {
+        try {
+          const raw = fs.readFileSync(path.join(outboxDir, file), "utf8");
+          const parsed = JSON.parse(raw);
+          if (parsed.caseId === req.params["caseIdOrKey"]) {
+            filePath = path.join(outboxDir, file);
+            found = true;
+            break;
+          }
+        } catch {
+          // ignore parsing error
+        }
+      }
+      if (!found) {
+        res.status(404).json({ error: "Case not found" });
+        return;
+      }
+    } else {
+      res.status(404).json({ error: "Case not found" });
+      return;
+    }
+  }
 
   try {
     const raw = fs.readFileSync(filePath, "utf8");

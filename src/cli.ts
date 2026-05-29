@@ -200,7 +200,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (command === "verify-audit-chain") {
+  if (command === "verify-audit-chain" || command === "verify-audit") {
     const repoPath = getString(args, "repo-path");
     const logPath = getString(args, "log-path") ?? (repoPath ? getAuditLogPath(repoPath) : undefined);
     if (!logPath) {
@@ -225,7 +225,7 @@ async function main(): Promise<void> {
 }
 
 function printHelp(): void {
-  console.error(`why-engine CLI\n\nCommands:\n  collect-evidence\n  analyze\n  publish\n  capture-and-publish\n  verify-audit-chain\n  start-mcp\n`);
+  console.error(`why-engine CLI\n\nCommands:\n  collect-evidence\n  analyze\n  publish\n  capture-and-publish\n  verify-audit\n  verify-audit-chain\n  start-mcp\n`);
 }
 
 main().catch((error) => {

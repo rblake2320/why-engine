@@ -22,7 +22,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 }
 
 export default function CaseDetail() {
-  const { caseId } = useParams<{ caseId: string }>();
+  const { caseId: caseIdOrKey } = useParams<{ caseId: string }>();
   const [searchParams] = useSearchParams();
   const repoPath = searchParams.get("repoPath") ?? "";
 
@@ -31,12 +31,12 @@ export default function CaseDetail() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!caseId || !repoPath) return;
-    api.outbox.get(repoPath, caseId)
+    if (!caseIdOrKey || !repoPath) return;
+    api.outbox.get(repoPath, caseIdOrKey)
       .then(setWc)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [caseId, repoPath]);
+  }, [caseIdOrKey, repoPath]);
 
   if (loading) return (
     <div className="flex items-center gap-2 text-slate-400">

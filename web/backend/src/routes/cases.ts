@@ -30,6 +30,10 @@ const PublishSchema = z.object({
   target: z.enum(["api", "outbox", "both"]).default("outbox"),
   dryRun: z.boolean().default(true),
   problemId: z.string().optional(),
+  evidenceLink: z.string().optional(),
+  forceStub: z.boolean().optional(),
+  allowSecrets: z.boolean().optional(),
+  gitleaksMode: z.enum(["block", "warn", "ignoreFingerprints"]).optional(),
   keepHistory: z.boolean().optional(),
 });
 
@@ -46,6 +50,12 @@ const CaptureSchema = z.object({
   sensitivity: z.enum(["public", "internal", "restricted"]).optional(),
   target: z.enum(["api", "outbox", "both"]).default("outbox"),
   dryRun: z.boolean().default(true),
+  problemId: z.string().optional(),
+  evidenceLink: z.string().optional(),
+  forceStub: z.boolean().optional(),
+  allowSecrets: z.boolean().optional(),
+  gitleaksMode: z.enum(["block", "warn", "ignoreFingerprints"]).optional(),
+  keepHistory: z.boolean().optional(),
 });
 
 function cliArgs(obj: Record<string, unknown>): string[] {
