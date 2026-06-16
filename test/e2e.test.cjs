@@ -37,11 +37,11 @@ test("collect -> analyze -> publish(outbox) works", { skip: !hasGit() }, async (
   const whyCase = analyzeWhyCase({
     repoPath: repoDir,
     evidenceId: evidence.evidenceId,
-    title: "Fix update",
-    rootCause: "Missing update step",
-    whyNotCaught: "No test coverage",
-    whyFixWorked: "Added update commit",
-    preventNextTime: "Add test"
+    title: "File update behavior",
+    rootCause: "The update path wrote the file without recording which branch of behavior changed",
+    whyNotCaught: "The prior tests asserted only that a file existed and did not verify the changed behavior",
+    whyFixWorked: "The fix works because the changed behavior is captured before the outbox writer runs",
+    preventNextTime: "Add regression tests that verify both the written file and the outbox publish behavior"
   });
 
   const result = await publishWhyCase({

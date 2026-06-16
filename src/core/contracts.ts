@@ -107,6 +107,7 @@ export interface PublishResult {
   dryRun: boolean;
   apiResult?: ApiPublishResult;
   outboxResult?: OutboxResult;
+  contentClassification?: ContentClassificationSummary;
   secretScanResult: SecretScanResult;
   deduped?: boolean;
   blockedReason?: string;
@@ -133,4 +134,17 @@ export interface OutboxResult {
   written: boolean;
   path: string;
   error?: string;
+}
+
+export interface ContentClassificationSummary {
+  level: "CLEAR" | "LOW" | "MEDIUM" | "HIGH";
+  findings: Array<{
+    field: string;
+    ruleId: string;
+    level: "LOW" | "MEDIUM" | "HIGH";
+    message: string;
+    snippet: string;
+  }>;
+  blocksApiPublish: boolean;
+  blocksOutboxPublish: boolean;
 }

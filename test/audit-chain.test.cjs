@@ -34,6 +34,17 @@ function initRepo() {
   return dir;
 }
 
+function goodWhyCase(overrides = {}) {
+  return {
+    title: "Outbox behavior regression",
+    rootCause: "The publish path relied on a short case id even though outbox files are keyed by the idempotency hash",
+    whyNotCaught: "The previous tests checked that a response existed but did not verify the persisted filename contract",
+    whyFixWorked: "The fix works because it verifies the idempotency hash before reading the outbox payload back",
+    preventNextTime: "Keep regression tests that assert both the outbox filename and the embedded case id",
+    ...overrides
+  };
+}
+
 // ─── Audit chain tests ─────────────────────────────────────────────────────
 
 test("audit chain: empty log is valid", () => {
@@ -159,11 +170,7 @@ test("outbox: file is named by idempotencyKey and contains caseId", async () => 
   const repoDir = initRepo();
   const whyCase = analyzeWhyCase({
     repoPath: repoDir,
-    title: "Outbox key test",
-    rootCause: "Testing outbox naming",
-    whyNotCaught: "No test",
-    whyFixWorked: "Added test",
-    preventNextTime: "Keep tests",
+    ...goodWhyCase({ title: "Outbox key test" }),
     sensitivity: "internal"
   });
 
@@ -193,11 +200,13 @@ test("outbox: stub record contains caseId and idempotencyKey but not secrets", a
   const repoDir = initRepo();
   const whyCase = analyzeWhyCase({
     repoPath: repoDir,
-    title: "Secret stub test",
-    rootCause: "token=supersecret123",
-    whyNotCaught: "No scanner",
-    whyFixWorked: "Added scanner",
-    preventNextTime: "Keep scanners",
+    ...goodWhyCase({
+      title: "Secret stub test",
+      rootCause: "token=supersecret123 remained in the narrative payload before outbox publish",
+      whyNotCaught: "The earlier test covered direct fields but did not verify the final stub-only outbox payload",
+      whyFixWorked: "The scanner works because it redacts token-shaped prose before the outbox payload is written",
+      preventNextTime: "Keep scanner regression tests that assert restricted outbox records omit narrative fields"
+    }),
     sensitivity: "restricted"
   });
 
@@ -308,11 +317,13 @@ test("idempotencyKey is stable across two identical analyze calls", () => {
   const repoDir = initRepo();
   const params = {
     repoPath: repoDir,
-    title: "Stable key test",
-    rootCause: "Same root cause",
-    whyNotCaught: "Same miss",
-    whyFixWorked: "Same fix",
-    preventNextTime: "Same prevention",
+    ...goodWhyCase({
+      title: "Stable key test",
+      rootCause: "The same root cause text should map to the same content-derived idempotency key",
+      whyNotCaught: "The earlier check did not repeat the same analysis payload to prove deterministic keying",
+      whyFixWorked: "The hash works because identical title and root-cause inputs produce the same SHA-256 value",
+      preventNextTime: "Keep deterministic idempotency tests in CI so retry behavior cannot create duplicate cases"
+    }),
     sensitivity: "internal"
   };
   const wc1 = analyzeWhyCase(params);
@@ -325,10 +336,12 @@ test("idempotencyKey changes when title changes", () => {
   const repoDir = initRepo();
   const base = {
     repoPath: repoDir,
-    rootCause: "Same root cause",
-    whyNotCaught: "Same miss",
-    whyFixWorked: "Same fix",
-    preventNextTime: "Same prevention",
+    ...goodWhyCase({
+      rootCause: "The idempotency key includes the title as part of the content hash input",
+      whyNotCaught: "The earlier coverage did not compare two otherwise identical analyses with different titles",
+      whyFixWorked: "The hash changes because the title is included in the SHA-256 idempotency input",
+      preventNextTime: "Keep title-variance tests in CI so key rotation remains intentional and visible"
+    }),
     sensitivity: "internal"
   };
   const wc1 = analyzeWhyCase({ ...base, title: "Title A" });

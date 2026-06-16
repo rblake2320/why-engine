@@ -23,6 +23,17 @@ function initRepo() {
   return repoDir;
 }
 
+function goodWhyCase(overrides = {}) {
+  return {
+    title: "File update behavior",
+    rootCause: "The update path wrote the file without recording which branch of behavior changed",
+    whyNotCaught: "The prior tests asserted only that a file existed and did not verify the changed behavior",
+    whyFixWorked: "The fix works because the changed behavior is now captured before publish dedupe runs",
+    preventNextTime: "Add regression tests that verify both the written file and the dedupe ledger behavior",
+    ...overrides
+  };
+}
+
 test("publish uses ledger to dedupe", async () => {
   const repoDir = initRepo();
   const evidence = collectEvidence({
@@ -35,11 +46,7 @@ test("publish uses ledger to dedupe", async () => {
   const whyCase = analyzeWhyCase({
     repoPath: repoDir,
     evidenceId: evidence.evidenceId,
-    title: "Fix update",
-    rootCause: "Missing update step",
-    whyNotCaught: "No test coverage",
-    whyFixWorked: "Added update commit",
-    preventNextTime: "Add test"
+    ...goodWhyCase({ title: "Ledger dedupe behavior" })
   });
 
   const publishedDir = path.join(repoDir, ".why-engine", "published");
@@ -76,11 +83,13 @@ test("restricted case blocks publish when secrets remain", async () => {
   const repoDir = initRepo();
   const whyCase = analyzeWhyCase({
     repoPath: repoDir,
-    title: "Leak",
-    rootCause: "token=supersecret",
-    whyNotCaught: "No scanner",
-    whyFixWorked: "Added scanner",
-    preventNextTime: "Keep scanners",
+    ...goodWhyCase({
+      title: "Restricted token leak",
+      rootCause: "token=supersecret remained in the narrative payload before publish",
+      whyNotCaught: "The earlier path did not scan the final outbox payload after case assembly",
+      whyFixWorked: "The scanner works because it redacts token-shaped values before the outbox writer persists them",
+      preventNextTime: "Keep scanner regression tests that assert restricted outbox records are stub-only"
+    }),
     sensitivity: "restricted"
   });
 
@@ -104,11 +113,7 @@ test("outbox dedupe uses idempotencyKey", async () => {
   const whyCase = analyzeWhyCase({
     repoPath: repoDir,
     evidenceId: evidence.evidenceId,
-    title: "Fix update",
-    rootCause: "Missing update step",
-    whyNotCaught: "No test coverage",
-    whyFixWorked: "Added update commit",
-    preventNextTime: "Add test"
+    ...goodWhyCase({ title: "Outbox dedupe behavior" })
   });
 
   const first = await publishWhyCase({ repoPath: repoDir, caseId: whyCase.caseId, target: "outbox", dryRun: false });
@@ -128,11 +133,13 @@ test("outbox publish does not create API dedupe ledger", async () => {
   const repoDir = initRepo();
   const whyCase = analyzeWhyCase({
     repoPath: repoDir,
-    title: "Leak",
-    rootCause: "token=supersecret",
-    whyNotCaught: "No scanner",
-    whyFixWorked: "Added scanner",
-    preventNextTime: "Keep scanners",
+    ...goodWhyCase({
+      title: "Restricted token outbox behavior",
+      rootCause: "token=supersecret remained in the narrative payload before publish",
+      whyNotCaught: "The earlier path did not scan the final outbox payload after case assembly",
+      whyFixWorked: "The scanner works because it redacts token-shaped values before the outbox writer persists them",
+      preventNextTime: "Keep scanner regression tests that assert restricted outbox records are stub-only"
+    }),
     sensitivity: "restricted"
   });
 
@@ -159,11 +166,13 @@ test("api publish blocked when secrets found", async () => {
   const repoDir = initRepo();
   const whyCase = analyzeWhyCase({
     repoPath: repoDir,
-    title: "Leak",
-    rootCause: "token=supersecret",
-    whyNotCaught: "No scanner",
-    whyFixWorked: "Added scanner",
-    preventNextTime: "Keep scanners",
+    ...goodWhyCase({
+      title: "Internal token API block",
+      rootCause: "token=supersecret remained in the narrative payload before API publish",
+      whyNotCaught: "The earlier API path relied on caller discipline instead of scanning final prose",
+      whyFixWorked: "The scanner works because it blocks token-shaped values before an API request is attempted",
+      preventNextTime: "Keep API publish regression tests that assert secret-bearing cases are blocked"
+    }),
     sensitivity: "internal"
   });
 

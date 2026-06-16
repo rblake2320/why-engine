@@ -41,6 +41,16 @@ function runCLI(args, opts = {}) {
   });
 }
 
+function analysisArgs(title) {
+  return [
+    "--title", title,
+    "--root-cause", "The handler trusted an optional value without first checking whether it was present",
+    "--why-not-caught", "Existing tests covered only the populated path and never exercised the missing-value branch",
+    "--why-fix-worked", "The guard works because it rejects the missing value before downstream code can dereference it",
+    "--prevent-next-time", "Add a regression test for the missing-value branch and keep it in CI coverage"
+  ];
+}
+
 // ─── collect-evidence ────────────────────────────────────────────────────────
 
 test("CLI collect-evidence: outputs valid JSON evidence bundle", () => {
@@ -80,18 +90,14 @@ test("CLI analyze: outputs valid WhyCase JSON", () => {
   const r = runCLI([
     "analyze",
     "--repo-path", repoDir,
-    "--title", "Test Bug",
-    "--root-cause", "Missing null check",
-    "--why-not-caught", "No unit test",
-    "--why-fix-worked", "Added null guard",
-    "--prevent-next-time", "Add test coverage"
+    ...analysisArgs("Null guard regression")
   ]);
   assert.strictEqual(r.status, 0, `CLI failed: ${r.stderr}`);
   const wc = JSON.parse(r.stdout);
   assert.ok(wc.caseId, "caseId should be present");
   assert.ok(wc.idempotencyKey, "idempotencyKey should be present");
-  assert.strictEqual(wc.title, "Test Bug");
-  assert.strictEqual(wc.rootCause, "Missing null check");
+  assert.strictEqual(wc.title, "Null guard regression");
+  assert.match(wc.rootCause, /optional value/);
   assert.strictEqual(wc.sensitivity, "internal");
   assert.strictEqual(typeof wc.secretScanResult.clean, "boolean");
 });
@@ -107,11 +113,7 @@ test("CLI analyze: sensitivity flag is respected", () => {
   const r = runCLI([
     "analyze",
     "--repo-path", repoDir,
-    "--title", "Public Test",
-    "--root-cause", "rc",
-    "--why-not-caught", "wnc",
-    "--why-fix-worked", "wfw",
-    "--prevent-next-time", "pnt",
+    ...analysisArgs("Public redaction behavior"),
     "--sensitivity", "public"
   ]);
   assert.strictEqual(r.status, 0, `CLI failed: ${r.stderr}`);
@@ -126,11 +128,7 @@ test("CLI publish: dry-run=true does not write outbox", async () => {
   const analyzeResult = runCLI([
     "analyze",
     "--repo-path", repoDir,
-    "--title", "Dry Run Test",
-    "--root-cause", "rc",
-    "--why-not-caught", "wnc",
-    "--why-fix-worked", "wfw",
-    "--prevent-next-time", "pnt"
+    ...analysisArgs("Dry run publish behavior")
   ]);
   assert.strictEqual(analyzeResult.status, 0);
   const wc = JSON.parse(analyzeResult.stdout);
@@ -158,11 +156,7 @@ test("CLI publish: outbox target writes file named by idempotencyKey", () => {
   const analyzeResult = runCLI([
     "analyze",
     "--repo-path", repoDir,
-    "--title", "Outbox Write Test",
-    "--root-cause", "rc",
-    "--why-not-caught", "wnc",
-    "--why-fix-worked", "wfw",
-    "--prevent-next-time", "pnt"
+    ...analysisArgs("Outbox idempotency path")
   ]);
   assert.strictEqual(analyzeResult.status, 0);
   const wc = JSON.parse(analyzeResult.stdout);
@@ -188,11 +182,7 @@ test("CLI publish: second publish to outbox is deduped", () => {
   const analyzeResult = runCLI([
     "analyze",
     "--repo-path", repoDir,
-    "--title", "Dedupe Test",
-    "--root-cause", "rc",
-    "--why-not-caught", "wnc",
-    "--why-fix-worked", "wfw",
-    "--prevent-next-time", "pnt"
+    ...analysisArgs("Outbox dedupe behavior")
   ]);
   assert.strictEqual(analyzeResult.status, 0);
   const wc = JSON.parse(analyzeResult.stdout);
@@ -222,11 +212,7 @@ test("CLI capture-and-publish: produces evidenceId, caseId, and result", () => {
     "capture-and-publish",
     "--repo-path", repoDir,
     "--commit-range", "HEAD~1..HEAD",
-    "--title", "Full Pipeline Test",
-    "--root-cause", "rc",
-    "--why-not-caught", "wnc",
-    "--why-fix-worked", "wfw",
-    "--prevent-next-time", "pnt",
+    ...analysisArgs("Full pipeline behavior"),
     "--target", "outbox",
     "--dry-run", "false"
   ]);
@@ -246,11 +232,7 @@ test("CLI verify-audit: returns valid chain after operations", () => {
   runCLI([
     "analyze",
     "--repo-path", repoDir,
-    "--title", "Audit Test",
-    "--root-cause", "rc",
-    "--why-not-caught", "wnc",
-    "--why-fix-worked", "wfw",
-    "--prevent-next-time", "pnt"
+    ...analysisArgs("Audit append behavior")
   ]);
   const r = runCLI(["verify-audit", "--repo-path", repoDir]);
   assert.strictEqual(r.status, 0, `CLI failed: ${r.stderr}`);
@@ -264,11 +246,7 @@ test("CLI verify-audit-chain: returns valid chain (canonical command)", () => {
   runCLI([
     "analyze",
     "--repo-path", repoDir,
-    "--title", "Audit Chain Test",
-    "--root-cause", "rc",
-    "--why-not-caught", "wnc",
-    "--why-fix-worked", "wfw",
-    "--prevent-next-time", "pnt"
+    ...analysisArgs("Audit chain behavior")
   ]);
   const r = runCLI(["verify-audit-chain", "--repo-path", repoDir]);
   assert.strictEqual(r.status, 0, `CLI failed: ${r.stderr}`);
@@ -281,11 +259,7 @@ test("CLI verify-audit and verify-audit-chain return identical results", () => {
   runCLI([
     "analyze",
     "--repo-path", repoDir,
-    "--title", "Alias Parity Test",
-    "--root-cause", "rc",
-    "--why-not-caught", "wnc",
-    "--why-fix-worked", "wfw",
-    "--prevent-next-time", "pnt"
+    ...analysisArgs("Audit alias parity behavior")
   ]);
   const r1 = runCLI(["verify-audit", "--repo-path", repoDir]);
   const r2 = runCLI(["verify-audit-chain", "--repo-path", repoDir]);

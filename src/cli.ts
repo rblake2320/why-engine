@@ -7,6 +7,7 @@ import { analyzeWhyCase } from "./core/case-builder";
 import { publishWhyCase } from "./publishers/publisher";
 import { getAuditLogPath, verifyAuditChain } from "./core/audit-chain";
 import { Sensitivity } from "./core/contracts";
+import { formatPromoteResult, promoteToWhyMd } from "./commands/promote-why";
 
 type ArgMap = Record<string, string | boolean>;
 
@@ -43,6 +44,18 @@ function getBoolean(args: ArgMap, key: string, defaultValue = false): boolean {
     return val.toLowerCase() === "true";
   }
   return defaultValue;
+}
+
+function getInteger(args: ArgMap, key: string, defaultValue: number): number {
+  const val = getString(args, key);
+  if (!val) {
+    return defaultValue;
+  }
+  const parsed = Number.parseInt(val, 10);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`--${key} must be an integer`);
+  }
+  return parsed;
 }
 
 function getList(args: ArgMap, key: string): string[] | undefined {
@@ -211,6 +224,21 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "promote-why") {
+    const repoPath = getString(args, "repo-path");
+    if (!repoPath) {
+      throw new Error("--repo-path is required");
+    }
+    const result = promoteToWhyMd({
+      repoPath,
+      dryRun: getBoolean(args, "dry-run", true),
+      minScore: getInteger(args, "min-score", 70),
+      force: getBoolean(args, "force", false)
+    });
+    console.log(formatPromoteResult(result));
+    return;
+  }
+
   if (command === "start-mcp") {
     const serverPath = path.join(__dirname, "mcp", "server.js");
     if (!fs.existsSync(serverPath)) {
@@ -225,7 +253,7 @@ async function main(): Promise<void> {
 }
 
 function printHelp(): void {
-  console.error(`why-engine CLI\n\nCommands:\n  collect-evidence\n  analyze\n  publish\n  capture-and-publish\n  verify-audit\n  verify-audit-chain\n  start-mcp\n`);
+  console.error(`why-engine CLI\n\nCommands:\n  collect-evidence\n  analyze\n  publish\n  capture-and-publish\n  promote-why\n  verify-audit\n  verify-audit-chain\n  start-mcp\n`);
 }
 
 main().catch((error) => {

@@ -1,4 +1,5 @@
 node_modules/
 dist/
 .why-engine/
+!WHY.md
 .env

@@ -7,7 +7,8 @@ import { collectEvidence } from "../core/evidence-collector";
 import { analyzeWhyCase } from "../core/case-builder";
 import { publishWhyCase } from "../publishers/publisher";
 import { getAuditLogPath, verifyAuditChain } from "../core/audit-chain";
-import { collectEvidenceSchema, analyzeSchema, publishSchema, captureAndPublishSchema, verifyAuditSchema } from "../core/schemas";
+import { promoteToWhyMd } from "../commands/promote-why";
+import { collectEvidenceSchema, analyzeSchema, publishSchema, captureAndPublishSchema, verifyAuditSchema, promoteWhySchema } from "../core/schemas";
 
 const SERVER_NAME = "why-engine";
 const SERVER_VERSION = "0.1.0";
@@ -120,6 +121,20 @@ const tools: Tool[] = [
         logPath: { type: "string" }
       }
     }
+  },
+  {
+    name: "why.promote_why",
+    description: "Promote qualifying public WhyCases with generalizablePattern into WHY.md Fix Intelligence",
+    inputSchema: {
+      type: "object",
+      properties: {
+        repoPath: { type: "string" },
+        dryRun: { type: "boolean" },
+        minScore: { type: "number" },
+        force: { type: "boolean" }
+      },
+      required: ["repoPath"]
+    }
   }
 ];
 
@@ -190,6 +205,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const args = verifyAuditSchema.parse(rawArgs ?? {});
       const logPath = args.logPath ?? getAuditLogPath(process.cwd());
       const result = verifyAuditChain(logPath);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+    if (name === "why.promote_why") {
+      const args = promoteWhySchema.parse(rawArgs ?? {});
+      const result = promoteToWhyMd(args);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
     throw new Error(`Unknown tool: ${name}`);

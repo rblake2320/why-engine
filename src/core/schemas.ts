@@ -79,3 +79,12 @@ export const verifyAuditSchema = z
     logPath: safePathSchema.optional()
   })
   .strict();
+
+export const promoteWhySchema = z
+  .object({
+    repoPath: safePathSchema,
+    dryRun: z.boolean().default(true),
+    minScore: z.number().int().min(0).max(100).default(70),
+    force: z.boolean().default(false)
+  })
+  .strict();

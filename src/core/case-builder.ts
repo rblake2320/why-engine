@@ -4,6 +4,7 @@ import { EvidenceBundle, Sensitivity, WhyCase } from "./contracts";
 import { assertSafeId, assertSafeRepoPath, ensureDir, getWhyEngineRoot } from "./path-policy";
 import { hashContent, scanAndRedact } from "./secret-scanner";
 import { appendAuditEntry } from "./audit-chain";
+import { formatQualityGateResult, runQualityGate } from "./quality-gate";
 
 export interface AnalyzeInput {
   repoPath: string;
@@ -15,7 +16,7 @@ export interface AnalyzeInput {
   preventNextTime: string;
   generalizablePattern?: string;
   tags?: string[];
-  sensitivity: Sensitivity;
+  sensitivity?: Sensitivity;
   issueUrl?: string;
   prUrl?: string;
 }
@@ -27,6 +28,19 @@ export function analyzeWhyCase(input: AnalyzeInput): WhyCase {
   if (input.evidenceId) {
     assertSafeId(input.evidenceId);
   }
+  const sensitivity = input.sensitivity ?? "internal";
+  const qualityResult = runQualityGate({
+    title: input.title,
+    rootCause: input.rootCause,
+    whyNotCaught: input.whyNotCaught,
+    whyFixWorked: input.whyFixWorked,
+    preventNextTime: input.preventNextTime,
+    generalizablePattern: input.generalizablePattern
+  });
+  if (!qualityResult.passed) {
+    throw new Error(formatQualityGateResult(qualityResult));
+  }
+
   const evidence = input.evidenceId
     ? loadEvidence(input.repoPath, input.evidenceId)
     : undefined;
@@ -57,7 +71,7 @@ export function analyzeWhyCase(input: AnalyzeInput): WhyCase {
       errorLogSnippet: snippet(evidence?.errorLog)
     },
     tags,
-    sensitivity: input.sensitivity,
+    sensitivity,
     secretScanResult: { clean: true, secretsFound: 0, redactionsApplied: 0, findings: [] },
     links: {
       issueUrl: input.issueUrl,
@@ -65,7 +79,7 @@ export function analyzeWhyCase(input: AnalyzeInput): WhyCase {
     }
   };
 
-  const redacted = scanAndRedact(whyCase, input.sensitivity, { repoPath: input.repoPath });
+  const redacted = scanAndRedact(whyCase, sensitivity, { repoPath: input.repoPath });
   redacted.redacted.secretScanResult = redacted.result;
   writeWhyCase(input.repoPath, redacted.redacted);
   appendAuditEntry(input.repoPath, "why.analyze", {

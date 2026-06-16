@@ -4,6 +4,7 @@ import { PublishResult, PublishTarget, WhyCase } from "../core/contracts";
 import { assertSafeId, assertSafeRepoPath, getWhyEngineRoot, ensureDir } from "../core/path-policy";
 import { hashContent, scanAndRedact } from "../core/secret-scanner";
 import { appendAuditEntry } from "../core/audit-chain";
+import { classifyContent, formatClassificationResult } from "../core/content-classifier";
 import { AihangoutClient } from "./api-client";
 
 export interface PublishInput {
@@ -33,6 +34,17 @@ export async function publishWhyCase(input: PublishInput): Promise<PublishResult
   const evidenceScan = loadEvidenceSecretScan(input.repoPath, loaded.evidenceId);
   const mergedScan = mergeSecretScan(scan.result, loaded.secretScanResult, evidenceScan);
   redactedCase.secretScanResult = mergedScan;
+  const classification = classifyContent({
+    rootCause: redactedCase.rootCause,
+    whyNotCaught: redactedCase.whyNotCaught,
+    whyFixWorked: redactedCase.whyFixWorked,
+    preventNextTime: redactedCase.preventNextTime,
+    generalizablePattern: redactedCase.generalizablePattern,
+    sensitivity: redactedCase.sensitivity
+  });
+  if (classification.findings.length > 0) {
+    process.stderr.write(formatClassificationResult(classification));
+  }
 
   const allowSecrets = input.allowSecrets === true;
   const previousSecrets = mergedScan.secretsFound;
@@ -47,6 +59,7 @@ export async function publishWhyCase(input: PublishInput): Promise<PublishResult
     idempotencyKey: redactedCase.idempotencyKey,
     target: input.target,
     dryRun: input.dryRun,
+    contentClassification: classification,
     secretScanResult: mergedScan
   };
 
@@ -85,6 +98,16 @@ export async function publishWhyCase(input: PublishInput): Promise<PublishResult
   }
 
   const shouldWriteOutbox = input.target === "outbox" || input.target === "both";
+  if (shouldWriteOutbox && classification.blocksOutboxPublish) {
+    result.blockedReason = `Content classifier blocked outbox: level=${classification.level}`;
+    appendAuditEntry(input.repoPath, "why.publish.blocked", {
+      caseId: input.caseId,
+      target: input.target,
+      reason: result.blockedReason
+    });
+    return result;
+  }
+
   const blockedByRestricted = redactedCase.sensitivity === "restricted" && hasSecrets;
   const shouldWriteStub = hasSecrets || gitleaksUnallowlisted > 0;
   const allowOutboxFull = !shouldWriteStub;
@@ -107,7 +130,12 @@ export async function publishWhyCase(input: PublishInput): Promise<PublishResult
       mode === "block" ? gitleaksTotal > 0 : gitleaksUnallowlisted > 0;
     const apiBlockedBySecrets = previousSecrets > 0 || regexFindings > 0 || apiBlockedByGitleaks;
 
-    if (blockedByRestricted) {
+    if (classification.blocksApiPublish) {
+      result.apiResult = {
+        success: false,
+        error: `Content classifier blocked API publish: level=${classification.level}`
+      };
+    } else if (blockedByRestricted) {
       result.apiResult = {
         success: false,
         error: result.blockedReason
