@@ -88,3 +88,27 @@ export const promoteWhySchema = z
     force: z.boolean().default(false)
   })
   .strict();
+
+export const recallSchema = z
+  .object({
+    repoPath: safePathSchema,
+    query: z.string().min(2).max(8000),
+    tags: z.array(z.string().max(64)).max(20).optional(),
+    limit: z.number().int().min(1).max(50).default(5),
+    minScore: z.number().min(0).max(1).default(0.05)
+  })
+  .strict();
+
+export const statsSchema = z
+  .object({
+    repoPath: safePathSchema,
+    similarityThreshold: z.number().min(0.1).max(1).default(0.5)
+  })
+  .strict();
+
+export const doctorSchema = z
+  .object({
+    repoPath: safePathSchema,
+    fix: z.boolean().default(false)
+  })
+  .strict();

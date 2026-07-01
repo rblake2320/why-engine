@@ -4,6 +4,7 @@ import { PublishResult, PublishTarget, WhyCase } from "../core/contracts";
 import { assertSafeId, assertSafeRepoPath, getWhyEngineRoot, ensureDir } from "../core/path-policy";
 import { hashContent, scanAndRedact } from "../core/secret-scanner";
 import { appendAuditEntry } from "../core/audit-chain";
+import { atomicWriteFileSync } from "../core/durable-fs";
 import { classifyContent, formatClassificationResult } from "../core/content-classifier";
 import { AihangoutClient } from "./api-client";
 
@@ -215,7 +216,7 @@ function writePublishedLedger(
     timestamp: new Date().toISOString(),
     payloadHash
   };
-  fs.writeFileSync(ledgerPath, JSON.stringify(payload, null, 2), "utf8");
+  atomicWriteFileSync(ledgerPath, JSON.stringify(payload, null, 2));
 }
 
 function writeOutbox(
@@ -236,12 +237,12 @@ function writeOutbox(
     ? buildStubRecord(repoPath, whyCase)
     : whyCase;
 
-  fs.writeFileSync(outboxPath, JSON.stringify(payload, null, 2), "utf8");
+  atomicWriteFileSync(outboxPath, JSON.stringify(payload, null, 2));
   if (options.keepHistory) {
     const historyDir = path.join(outboxDir, "history");
     ensureDir(historyDir);
     const historyPath = path.join(historyDir, `${whyCase.idempotencyKey}-${Date.now()}.json`);
-    fs.writeFileSync(historyPath, JSON.stringify(payload, null, 2), "utf8");
+    atomicWriteFileSync(historyPath, JSON.stringify(payload, null, 2));
   }
   return { written: true, path: outboxPath };
 }

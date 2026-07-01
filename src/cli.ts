@@ -8,6 +8,10 @@ import { publishWhyCase } from "./publishers/publisher";
 import { getAuditLogPath, verifyAuditChain } from "./core/audit-chain";
 import { Sensitivity } from "./core/contracts";
 import { formatPromoteResult, promoteToWhyMd } from "./commands/promote-why";
+import { formatRecallResult, recallCases } from "./core/recall";
+import { computeStats, formatStatsResult } from "./commands/stats";
+import { formatDoctorResult, runDoctor } from "./commands/doctor";
+import { repairAuditChain } from "./core/audit-chain";
 
 type ArgMap = Record<string, string | boolean>;
 
@@ -239,6 +243,70 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "search" || command === "recall") {
+    const repoPath = getString(args, "repo-path");
+    const query = getString(args, "query");
+    if (!repoPath || !query) {
+      throw new Error("--repo-path and --query are required");
+    }
+    const result = recallCases({
+      repoPath,
+      query,
+      tags: getList(args, "tags"),
+      limit: getInteger(args, "limit", 5),
+      minScore: Number(getString(args, "min-score") ?? "0.05")
+    });
+    if (getBoolean(args, "json", false)) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(formatRecallResult(result));
+    }
+    return;
+  }
+
+  if (command === "stats") {
+    const repoPath = getString(args, "repo-path");
+    if (!repoPath) {
+      throw new Error("--repo-path is required");
+    }
+    const result = computeStats({
+      repoPath,
+      similarityThreshold: Number(getString(args, "similarity-threshold") ?? "0.5")
+    });
+    if (getBoolean(args, "json", false)) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(formatStatsResult(result));
+    }
+    return;
+  }
+
+  if (command === "doctor") {
+    const repoPath = getString(args, "repo-path");
+    if (!repoPath) {
+      throw new Error("--repo-path is required");
+    }
+    const result = runDoctor({ repoPath, fix: getBoolean(args, "fix", false) });
+    if (getBoolean(args, "json", false)) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(formatDoctorResult(result));
+    }
+    process.exitCode = result.healthy ? 0 : 1;
+    return;
+  }
+
+  if (command === "audit-repair") {
+    const repoPath = getString(args, "repo-path");
+    if (!repoPath) {
+      throw new Error("--repo-path is required");
+    }
+    const result = repairAuditChain(repoPath);
+    console.log(JSON.stringify(result, null, 2));
+    process.exitCode = result.repaired || result.reason === "audit chain already valid" ? 0 : 1;
+    return;
+  }
+
   if (command === "start-mcp") {
     const serverPath = path.join(__dirname, "mcp", "server.js");
     if (!fs.existsSync(serverPath)) {
@@ -253,7 +321,7 @@ async function main(): Promise<void> {
 }
 
 function printHelp(): void {
-  console.error(`why-engine CLI\n\nCommands:\n  collect-evidence\n  analyze\n  publish\n  capture-and-publish\n  promote-why\n  verify-audit\n  verify-audit-chain\n  start-mcp\n`);
+  console.error(`why-engine CLI\n\nCommands:\n  collect-evidence\n  analyze\n  publish\n  capture-and-publish\n  promote-why\n  search | recall\n  stats\n  doctor\n  audit-repair\n  verify-audit\n  verify-audit-chain\n  start-mcp\n`);
 }
 
 main().catch((error) => {

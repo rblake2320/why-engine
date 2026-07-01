@@ -4,6 +4,7 @@ import { EvidenceBundle, Sensitivity, WhyCase } from "./contracts";
 import { assertSafeId, assertSafeRepoPath, ensureDir, getWhyEngineRoot } from "./path-policy";
 import { hashContent, scanAndRedact } from "./secret-scanner";
 import { appendAuditEntry } from "./audit-chain";
+import { atomicWriteFileSync } from "./durable-fs";
 import { formatQualityGateResult, runQualityGate } from "./quality-gate";
 
 export interface AnalyzeInput {
@@ -107,7 +108,7 @@ function snippet(value?: string): string | undefined {
 function writeWhyCase(repoPath: string, whyCase: WhyCase): void {
   const caseDir = path.join(getWhyEngineRoot(repoPath), "cases", whyCase.caseId);
   ensureDir(caseDir);
-  fs.writeFileSync(path.join(caseDir, "case.json"), JSON.stringify(whyCase, null, 2), "utf8");
+  atomicWriteFileSync(path.join(caseDir, "case.json"), JSON.stringify(whyCase, null, 2));
 }
 
 function computeIdempotencyKey(input: AnalyzeInput, evidence?: EvidenceBundle): string {

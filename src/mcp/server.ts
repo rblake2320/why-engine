@@ -8,10 +8,13 @@ import { analyzeWhyCase } from "../core/case-builder";
 import { publishWhyCase } from "../publishers/publisher";
 import { getAuditLogPath, verifyAuditChain } from "../core/audit-chain";
 import { promoteToWhyMd } from "../commands/promote-why";
-import { collectEvidenceSchema, analyzeSchema, publishSchema, captureAndPublishSchema, verifyAuditSchema, promoteWhySchema } from "../core/schemas";
+import { collectEvidenceSchema, analyzeSchema, publishSchema, captureAndPublishSchema, verifyAuditSchema, promoteWhySchema, recallSchema, statsSchema, doctorSchema } from "../core/schemas";
+import { recallCases } from "../core/recall";
+import { computeStats } from "../commands/stats";
+import { runDoctor } from "../commands/doctor";
 
 const SERVER_NAME = "why-engine";
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = "0.2.0";
 
 const tools: Tool[] = [
   {
@@ -123,6 +126,45 @@ const tools: Tool[] = [
     }
   },
   {
+    name: "why.recall",
+    description: "BEFORE attempting a fix, recall prior root-cause cases matching an error message, stack trace, or symptom description. Returns ranked matches with their root causes, why the fixes worked, and prevention guidance.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        repoPath: { type: "string" },
+        query: { type: "string", description: "Error message, stack trace, symptom, or question" },
+        tags: { type: "array", items: { type: "string" } },
+        limit: { type: "number" },
+        minScore: { type: "number" }
+      },
+      required: ["repoPath", "query"]
+    }
+  },
+  {
+    name: "why.stats",
+    description: "Fleet-level insight over the case store: totals, top tags, quality scores, and recurring root-cause clusters (preventions that did not hold)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        repoPath: { type: "string" },
+        similarityThreshold: { type: "number" }
+      },
+      required: ["repoPath"]
+    }
+  },
+  {
+    name: "why.doctor",
+    description: "Health-check the .why-engine store: audit chain integrity, torn-tail detection, case/ledger/outbox consistency, stale locks. Set fix=true to quarantine a torn audit tail.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        repoPath: { type: "string" },
+        fix: { type: "boolean" }
+      },
+      required: ["repoPath"]
+    }
+  },
+  {
     name: "why.promote_why",
     description: "Promote qualifying public WhyCases with generalizablePattern into WHY.md Fix Intelligence",
     inputSchema: {
@@ -205,6 +247,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const args = verifyAuditSchema.parse(rawArgs ?? {});
       const logPath = args.logPath ?? getAuditLogPath(process.cwd());
       const result = verifyAuditChain(logPath);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+    if (name === "why.recall") {
+      const args = recallSchema.parse(rawArgs ?? {});
+      const result = recallCases(args);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+    if (name === "why.stats") {
+      const args = statsSchema.parse(rawArgs ?? {});
+      const result = computeStats(args);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+    if (name === "why.doctor") {
+      const args = doctorSchema.parse(rawArgs ?? {});
+      const result = runDoctor(args);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
     if (name === "why.promote_why") {

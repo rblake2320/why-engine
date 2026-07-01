@@ -77,6 +77,62 @@ Why Engine, not a replacement for the structured `.why-engine/` case store.
 - **Consequences:** API publish can be blocked even when no literal token or key
   is present.
 
+### [WHY-006] Why torn-tail repair quarantines instead of deleting
+
+- **Date:** 2026-07-01
+- **Status:** Accepted
+- **Context:** fsync'd appends make acknowledged writes durable, but a crash
+  *during* an append can still leave a partial final line. That torn tail is
+  expected crash residue, not tampering — yet an audit system must never
+  silently discard bytes.
+- **Decision:** `repairAuditChain` moves the torn bytes to a timestamped
+  quarantine file, rewrites the log atomically, and chains a
+  `why.audit_repair` entry so the repair is itself on the audit record.
+- **Rejected Options:** Silent truncation; refusing all repair; auto-repair of
+  any broken entry.
+- **Why This Holds:** A malformed *final* line is the unique signature of a
+  crash mid-append. Any mid-log defect is evidence of tampering or bit rot and
+  is deliberately not auto-repairable.
+- **Consequences:** Operators may see quarantine files after crashes; those
+  files are the proof the repair touched nothing else.
+
+### [WHY-007] Why recall is lexical TF-IDF instead of embeddings
+
+- **Date:** 2026-07-01
+- **Status:** Accepted
+- **Context:** The killer query is "have we seen this failure before?" asked
+  from CI, air-gapped environments, and agent loops. Failure symptoms are
+  dominated by rare, exact tokens: error codes, file paths, stack frames.
+- **Decision:** Field-weighted TF-IDF with a tokenizer that preserves compound
+  identifiers (paths, error codes) alongside their parts. Zero dependencies,
+  zero network, deterministic, works offline.
+- **Rejected Options:** Embedding models (network or heavy local deps, breaks
+  IL5/air-gap posture); SQLite FTS (adds a native dependency).
+- **Why This Holds:** ENOENT matching ENOENT beats semantic similarity for
+  incident recall, and determinism means the same query always returns the
+  same evidence.
+- **Consequences:** Paraphrase-only matches score lower than exact-symptom
+  matches. An optional embedding layer can be added later without changing the
+  recall contract.
+
+### [WHY-008] Why the advisory lock uses mkdir instead of a lockfile or native flock
+
+- **Date:** 2026-07-01
+- **Status:** Accepted
+- **Context:** CLI, MCP server, and web backend can write the same
+  `.why-engine` store concurrently. Interleaved appends would fork the hash
+  chain.
+- **Decision:** `withLock` acquires via atomic `mkdir`, records owner
+  metadata, and breaks locks whose mtime exceeds a staleness threshold.
+- **Rejected Options:** `flock` (needs native deps or platform-specific
+  behavior); O_EXCL lockfiles (equivalent but leaves less room for owner
+  metadata); no locking (status quo, unsound).
+- **Why This Holds:** Directory creation is atomic on every platform Node
+  supports, requires no dependencies, and stale-breaking handles crashed
+  holders without operator intervention.
+- **Consequences:** Locks are advisory: only code that goes through
+  `withLock` is protected, which all engine write paths now do.
+
 ## Fix Intelligence
 
 Promoted from reviewed WhyCases where `generalizablePattern` is non-empty,
