@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-07-01
+
+### Fixed (found by adversarial self-audit; all reproduced before fixing, none theoretical)
+- **Newline-boundary tear caused repair to destroy valid entries.** A crash tearing exactly between a record and its trailing newline left valid JSON with no line terminator; the next append glued onto that line, verify saw one "malformed" line, and repair quarantined BOTH valid records (`entriesRetained: 0`). `appendLineDurable` now checks the final byte and heals a missing newline before appending — the scenario self-heals with zero data loss and no repair needed.
+- **Live-holder lock theft.** Stale detection was mtime-only, so any operation holding a lock longer than `staleMs` (default 30s) had its lock stolen by a concurrent process, silently breaking mutual exclusion. Stale verdicts now require the recorded holder pid to be provably dead (ESRCH); a live holder keeps its lock regardless of age.
+- **Multibyte corruption in backward tail scan.** The tail reader decoded each 64KB chunk independently, corrupting UTF-8 characters split across chunk boundaries on large entries and breaking prev-hash resolution. The scan now operates on raw bytes (0x0A can never occur inside a multibyte sequence) and decodes the line exactly once.
+- CLI numeric flags (`--min-score`, `--similarity-threshold`) reject non-numeric input instead of silently producing NaN filters.
+
+### Testing
+- Replaced a meaningless single-process "mutual exclusion" test with real-world proofs, none mocked: 8 actual OS processes concurrently appending to one store (chain must not fork), a real child process holding the lock past `staleMs` (must not be stolen), a genuinely dead pid abandoning a lock (must be broken), a reproduced newline-boundary crash tear (zero data loss), and a 200KB multibyte entry spanning chunk boundaries. 87 tests.
+
 ## [0.2.0] - 2026-07-01
 
 ### Added

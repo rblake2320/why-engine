@@ -39,9 +39,29 @@ export function atomicWriteFileSync(targetPath: string, data: string): void {
 
 export function appendLineDurable(targetPath: string, line: string): void {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  // Heal a missing trailing newline first. A crash can tear a previous append
+  // exactly between the record bytes and its terminating "\n"; appending
+  // directly would glue two records onto one line and turn a benign crash
+  // artifact into apparent mid-log corruption. Checking the final byte keeps
+  // every record on its own line no matter where the last write tore.
+  let needsLeadingNewline = false;
+  if (fs.existsSync(targetPath)) {
+    const fd = fs.openSync(targetPath, "r");
+    try {
+      const size = fs.fstatSync(fd).size;
+      if (size > 0) {
+        const last = Buffer.alloc(1);
+        fs.readSync(fd, last, 0, 1, size - 1);
+        needsLeadingNewline = last[0] !== 0x0a;
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+  }
   const fd = fs.openSync(targetPath, "a");
   try {
-    fs.writeFileSync(fd, line.endsWith("\n") ? line : `${line}\n`, "utf8");
+    const body = line.endsWith("\n") ? line : `${line}\n`;
+    fs.writeFileSync(fd, needsLeadingNewline ? `\n${body}` : body, "utf8");
     fs.fsyncSync(fd);
   } finally {
     fs.closeSync(fd);
@@ -128,13 +148,39 @@ export function withLock<T>(lockName: string, baseDir: string, fn: () => T, opti
 }
 
 function isLockStale(lockDir: string, staleMs: number): boolean {
+  let olderThanThreshold: boolean;
   try {
     const stat = fs.statSync(lockDir);
-    return Date.now() - stat.mtimeMs > staleMs;
+    olderThanThreshold = Date.now() - stat.mtimeMs > staleMs;
   } catch {
     // Lock vanished between mkdir failure and stat: treat as breakable.
     return true;
   }
+  if (!olderThanThreshold) {
+    return false;
+  }
+  // Age alone is not abandonment: a legitimate holder may simply be running
+  // longer than staleMs, and stealing its lock would break mutual exclusion
+  // exactly when it matters most. Only declare stale if the recorded holder
+  // process is provably gone (same-machine check; the store is a local FS).
+  try {
+    const owner = JSON.parse(fs.readFileSync(path.join(lockDir, "owner.json"), "utf8")) as { pid?: number };
+    if (typeof owner.pid === "number" && owner.pid > 0) {
+      try {
+        process.kill(owner.pid, 0); // signal 0 = existence check only
+        return false; // holder is alive; respect the lock regardless of age
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === "EPERM") {
+          return false; // process exists but belongs to another user
+        }
+        return true; // ESRCH: holder is dead
+      }
+    }
+  } catch {
+    /* owner.json missing or unreadable: fall through to age-based verdict */
+  }
+  return true;
 }
 
 function sleepSync(ms: number): void {

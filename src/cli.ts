@@ -70,6 +70,18 @@ function getList(args: ArgMap, key: string): string[] | undefined {
   return val.split(",").map((item) => item.trim()).filter(Boolean);
 }
 
+function parseNumberFlag(args: ArgMap, key: string, defaultValue: number): number {
+  const raw = getString(args, key);
+  if (raw === undefined) {
+    return defaultValue;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`--${key} must be a number`);
+  }
+  return parsed;
+}
+
 function readMaybeFile(value?: string, filePath?: string): string | undefined {
   if (value && value.length > 0) {
     return value;
@@ -254,7 +266,7 @@ async function main(): Promise<void> {
       query,
       tags: getList(args, "tags"),
       limit: getInteger(args, "limit", 5),
-      minScore: Number(getString(args, "min-score") ?? "0.05")
+      minScore: parseNumberFlag(args, "min-score", 0.05)
     });
     if (getBoolean(args, "json", false)) {
       console.log(JSON.stringify(result, null, 2));
@@ -271,7 +283,7 @@ async function main(): Promise<void> {
     }
     const result = computeStats({
       repoPath,
-      similarityThreshold: Number(getString(args, "similarity-threshold") ?? "0.5")
+      similarityThreshold: parseNumberFlag(args, "similarity-threshold", 0.5)
     });
     if (getBoolean(args, "json", false)) {
       console.log(JSON.stringify(result, null, 2));

@@ -95,7 +95,10 @@ function resolvePrevHash(repoPath: string, logPath: string): string | null {
 }
 
 function readLastNonEmptyLine(logPath: string): string | null {
-  // Tail-read without loading the whole file: scan backwards in chunks.
+  // Backward scan over raw bytes. Newline (0x0A) is never a continuation
+  // byte in UTF-8, so byte-level scanning is safe; the line is decoded once
+  // as a whole, which avoids corrupting multibyte characters that a
+  // chunk-by-chunk string decode would split at chunk boundaries.
   const fd = fs.openSync(logPath, "r");
   try {
     const size = fs.fstatSync(fd).size;
@@ -104,19 +107,31 @@ function readLastNonEmptyLine(logPath: string): string | null {
     }
     const chunkSize = 64 * 1024;
     let position = size;
-    let carry = "";
-    while (position > 0) {
+    let tail = Buffer.alloc(0);
+    for (;;) {
+      // Skip trailing newlines/whitespace-only bytes accumulated so far and
+      // look for the newline that terminates the previous line.
+      const text = tail.toString("utf8");
+      const trimmed = text.replace(/[\s]+$/u, "");
+      if (trimmed.length > 0) {
+        const nl = trimmed.lastIndexOf("\n");
+        if (nl !== -1 || position === 0) {
+          const line = nl !== -1 ? trimmed.slice(nl + 1) : trimmed;
+          return line.trim() === "" ? null : line;
+        }
+      } else if (position === 0) {
+        return null;
+      }
+      if (position === 0) {
+        const line = trimmed;
+        return line.trim() === "" ? null : line;
+      }
       const readSize = Math.min(chunkSize, position);
       position -= readSize;
       const buf = Buffer.alloc(readSize);
       fs.readSync(fd, buf, 0, readSize, position);
-      carry = buf.toString("utf8") + carry;
-      const lines = carry.split("\n").filter((line) => line.trim() !== "");
-      if (position === 0 || lines.length > 1) {
-        return lines.length > 0 ? lines[lines.length - 1] : null;
-      }
+      tail = Buffer.concat([buf, tail]);
     }
-    return null;
   } finally {
     fs.closeSync(fd);
   }

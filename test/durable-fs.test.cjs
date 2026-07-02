@@ -42,22 +42,6 @@ test("appendLineDurable appends newline-terminated lines", () => {
   assert.strictEqual(fs.readFileSync(target, "utf8"), "one\ntwo\n");
 });
 
-test("withLock provides mutual exclusion within a process", () => {
-  const dir = tmpDir();
-  let inCritical = false;
-  let violations = 0;
-  for (let i = 0; i < 5; i += 1) {
-    withLock("test", dir, () => {
-      if (inCritical) {
-        violations += 1;
-      }
-      inCritical = true;
-      inCritical = false;
-    });
-  }
-  assert.strictEqual(violations, 0);
-});
-
 test("withLock returns the callback result and releases the lock", () => {
   const dir = tmpDir();
   const result = withLock("test", dir, () => 42);

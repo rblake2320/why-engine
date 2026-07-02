@@ -14,7 +14,7 @@ import { computeStats } from "../commands/stats";
 import { runDoctor } from "../commands/doctor";
 
 const SERVER_NAME = "why-engine";
-const SERVER_VERSION = "0.2.0";
+const SERVER_VERSION = "0.2.1";
 
 const tools: Tool[] = [
   {
