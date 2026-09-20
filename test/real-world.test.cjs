@@ -25,36 +25,39 @@ function tmpRepo() {
 // hash chain forks and this fails.
 // ---------------------------------------------------------------------------
 test("8 real processes appending concurrently produce one unbroken chain", async () => {
-  const repo = tmpRepo();
   const workers = 8;
   const perWorker = 10;
-  const script = `
-    const { appendAuditEntry } = require(${JSON.stringify(path.join(DIST, "core", "audit-chain.js"))});
-    const repo = process.argv[2];
-    const worker = process.argv[3];
-    for (let i = 0; i < ${perWorker}; i += 1) {
-      appendAuditEntry(repo, "stress", { worker, i });
+  const rounds = 5;
+  for (let round = 0; round < rounds; round += 1) {
+    const repo = tmpRepo();
+    const script = `
+      const { appendAuditEntry } = require(${JSON.stringify(path.join(DIST, "core", "audit-chain.js"))});
+      const repo = process.argv[2];
+      const worker = process.argv[3];
+      for (let i = 0; i < ${perWorker}; i += 1) {
+        appendAuditEntry(repo, "stress", { worker, i });
+      }
+    `;
+    const children = [];
+    for (let w = 0; w < workers; w += 1) {
+      children.push(
+        new Promise((resolve, reject) => {
+          const child = spawn(process.execPath, ["-e", script, "node", repo, String(w)], {
+            stdio: ["ignore", "ignore", "pipe"]
+          });
+          let stderr = "";
+          child.stderr.on("data", (d) => { stderr += d; });
+          child.on("exit", (code) =>
+            code === 0 ? resolve() : reject(new Error(`round ${round} worker ${w} exited ${code}: ${stderr}`))
+          );
+        })
+      );
     }
-  `;
-  const children = [];
-  for (let w = 0; w < workers; w += 1) {
-    children.push(
-      new Promise((resolve, reject) => {
-        const child = spawn(process.execPath, ["-e", script, "node", repo, String(w)], {
-          stdio: ["ignore", "ignore", "pipe"]
-        });
-        let stderr = "";
-        child.stderr.on("data", (d) => { stderr += d; });
-        child.on("exit", (code) =>
-          code === 0 ? resolve() : reject(new Error(`worker ${w} exited ${code}: ${stderr}`))
-        );
-      })
-    );
+    await Promise.all(children);
+    const verdict = verifyAuditChain(getAuditLogPath(repo));
+    assert.strictEqual(verdict.valid, true, `round ${round}: chain broken: ${JSON.stringify(verdict)}`);
+    assert.strictEqual(verdict.totalEntries, workers * perWorker);
   }
-  await Promise.all(children);
-  const verdict = verifyAuditChain(getAuditLogPath(repo));
-  assert.strictEqual(verdict.valid, true, `chain broken: ${JSON.stringify(verdict)}`);
-  assert.strictEqual(verdict.totalEntries, workers * perWorker);
 });
 
 // ---------------------------------------------------------------------------

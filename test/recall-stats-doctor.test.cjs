@@ -69,6 +69,23 @@ test("recall ranks the matching prior case first for a new symptom description",
   assert.ok(result.matches[0].matchedTerms.length > 0);
 });
 
+test("recall discounts a single generic overlap in an otherwise unrelated query", () => {
+  const repo = tmpRepo();
+  seedCase(repo, {
+    title: "Retry storm amplified an upstream timeout",
+    rootCause: "The agent repeated a failing upstream request without a shared retry budget",
+    whyFixWorked: "The circuit breaker works because it stops requests after the failure threshold",
+    preventNextTime: "Add a retry-budget integration test and alert for repeated failures",
+    tags: ["reliability", "retry"]
+  });
+  const result = recallCases({
+    repoPath: repo,
+    query: "Permanently delete a tenant dataset after owner approval is verified",
+    minScore: 0.15
+  });
+  assert.strictEqual(result.matches.length, 0);
+});
+
 test("recall tag filter requires all tags", () => {
   const repo = tmpRepo();
   seedCase(repo, { tags: ["concurrency", "durability"] });

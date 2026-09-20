@@ -10,6 +10,20 @@ test("scanAndRedact redacts tokens", () => {
   assert.match(JSON.stringify(result.redacted), /REDACTED/);
 });
 
+test("scanAndRedact redacts an Authorization header credential", () => {
+  const input = { headers: "Authorization: Bearer example-secret-token" };
+  const result = scanAndRedact(input, "internal");
+  assert.strictEqual(result.result.secretsFound > 0, true);
+  assert.match(JSON.stringify(result.redacted), /REDACTED/);
+});
+
+test("scanAndRedact preserves non-secret authorization metadata", () => {
+  const input = { summary: "authorization=deployment_operator" };
+  const result = scanAndRedact(input, "internal");
+  assert.strictEqual(result.result.secretsFound, 0);
+  assert.strictEqual(result.redacted.summary, input.summary);
+});
+
 test("scanAndRedact public redacts emails", () => {
   const input = { email: "john.doe@example.com", ip: "10.1.2.3", url: "https://example.com/path" };
   const result = scanAndRedact(input, "public");

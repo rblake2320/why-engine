@@ -21,6 +21,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node scripts/run-tests.mjs",
+    "test:jev-poc": "npm run build && node scripts/jev-why-poc.mjs",
     "verify": "node scripts/verify-outbox.mjs",
     "start:mcp": "node dist/mcp/server.js"
   },

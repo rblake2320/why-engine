@@ -2,6 +2,24 @@
 
 Standalone CLI + MCP server for capturing root-cause analyses, sanitizing evidence, and publishing safe, idempotent "why cases" to aihangout.ai.
 
+## Experimental Jev Decision Receipts
+
+The Jev proof of concept treats Jev as the bounded semantic **if**, deterministic
+policy as the authority, and Why Engine as the durable **why**. It records the
+state hash, Jev probabilities, fired policy rules, alternatives, evidence-linked
+explanation factors, and eventual outcome without claiming access to hidden model
+reasoning.
+
+```bash
+export TYPESAFE_API_KEY='your temporary test key'
+npm run test:jev-poc
+unset TYPESAFE_API_KEY
+```
+
+The experiment uses synthetic scenarios and executes no external side effects.
+See [`docs/jev-why-poc.md`](docs/jev-why-poc.md) for the architecture, observed
+results, and safety boundary.
+
 ## Safe Publish Modes
 
 - **Default mode (recommended):** `--target outbox` writes to `.why-engine/outbox/<idempotencyKey>.json` with dedupe via ledger.
