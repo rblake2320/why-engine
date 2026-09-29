@@ -78,6 +78,13 @@ const FIELD_SPECS: FieldSpec[] = [
   { name: "commitMessages", weight: 1.0 }
 ];
 
+/**
+ * A single matched token only admits a case if the token appears in no more
+ * than this fraction of the corpus. Above it the token is ubiquitous and
+ * therefore carries no diagnostic signal on its own.
+ */
+const SINGLE_TOKEN_MAX_DF_RATIO = 0.34;
+
 const STOPWORDS = new Set([
   "the", "a", "an", "and", "or", "but", "of", "to", "in", "on", "for", "with",
   "is", "was", "are", "were", "be", "been", "being", "it", "its", "this",
@@ -209,19 +216,42 @@ export function recallCases(input: RecallQuery): RecallResult {
         matched.push(token);
       }
     }
+    // Distinctiveness gate (added 2026-09-28). A match driven by a single
+    // ubiquitous word ("test", "fix", "run") is noise: it surfaces a case on
+    // every prompt containing that word, which is how real lessons got buried
+    // under irrelevant ones. Admit a single-token match ONLY when that token is
+    // rare enough to be diagnostic (an error code, an identifier, a path).
+    // Two or more matched tokens always qualify.
+    if (score > 0 && matched.length === 1) {
+      const dfCount = df.get(matched[0]) ?? 0;
+      if (dfCount / n > SINGLE_TOKEN_MAX_DF_RATIO) {
+        continue;
+      }
+    }
     if (score > 0) {
       scored.push({ whyCase: cases[i], score, matched });
     }
   }
 
-  // Normalize against the best possible score for THIS query so thresholds
-  // are stable regardless of query length.
+  // Normalize against the best possible score for ALL query tokens, INCLUDING
+  // tokens absent from the corpus.
+  //
+  // Bug fixed 2026-09-28: this previously skipped df === 0 tokens, so the
+  // denominator only counted words the corpus happened to know. A prompt like
+  // "test it and let me know" kept only "test" (let/me/know are absent), making
+  // the denominator a single token — so ONE generic word scored 100%. Two
+  // irrelevant cases outranked the genuinely relevant one, and because every
+  // such prompt produced 100% matches the recall block read as authoritative
+  // wallpaper instead of a signal. Unrecognized query words must DILUTE the
+  // score, which is what makes a vague prompt correctly score low.
+  //
+  // An absent token is scored at the idf it WOULD have at df = 1 (maximally
+  // rare), because that is the ceiling a perfectly-matching corpus could offer.
+  const idfCeiling = Math.log(1 + n / 1);
   const maxPossible = queryTokens.reduce((sum, token) => {
     const dfCount = df.get(token) ?? 0;
-    if (dfCount === 0) {
-      return sum;
-    }
-    return sum + Math.log(1 + n / dfCount) * 3.0;
+    const idf = dfCount === 0 ? idfCeiling : Math.log(1 + n / dfCount);
+    return sum + idf * 3.0;
   }, 0);
 
   const matches = scored
