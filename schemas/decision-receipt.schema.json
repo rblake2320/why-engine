@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rblake2320/why-engine/schemas/decision-receipt.schema.json",
+  "title": "WhyDecisionReceipt",
+  "description": "An auditable record of observable decision inputs, Jev judgments, deterministic policy, action selection, and explanation factors. It does not claim to expose hidden model reasoning.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "decisionId",
+    "occurredAt",
+    "actor",
+    "trigger",
+    "provenance",
+    "jev",
+    "policy",
+    "decision",
+    "explanation",
+    "sensitivity",
+    "reviewStatus",
+    "secretScanResult",
+    "integrity"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "decisionId": { "type": "string", "minLength": 16, "maxLength": 128 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "actor": {
+      "type": "object",
+      "required": ["agentId", "runId", "stepId"],
+      "properties": {
+        "agentId": { "type": "string" },
+        "runId": { "type": "string" },
+        "stepId": { "type": "string" },
+        "parentDecisionId": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "trigger": {
+      "type": "object",
+      "required": ["eventType", "goal"],
+      "properties": {
+        "eventType": { "type": "string" },
+        "goal": { "type": "string" },
+        "requestedAction": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["stateHash", "policyVersion", "questionSetVersion", "traceId", "priorCaseIds", "evidenceRefs"],
+      "properties": {
+        "stateHash": { "type": "string" },
+        "stateRef": { "type": "string" },
+        "stateSummary": { "type": "string" },
+        "policyVersion": { "type": "string" },
+        "questionSetVersion": { "type": "string" },
+        "traceId": { "type": "string" },
+        "priorCaseIds": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "evidenceRefs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "jev": {
+      "type": "object",
+      "required": ["requestedModel", "resolvedModel", "questions", "answers"],
+      "properties": {
+        "requestId": { "type": "string" },
+        "requestedModel": { "type": "string" },
+        "resolvedModel": { "type": "string" },
+        "latencyMs": { "type": "number", "minimum": 0 },
+        "inputTokens": { "type": "integer", "minimum": 0 },
+        "outputTokens": { "type": "integer", "minimum": 0 },
+        "questions": { "type": "object" },
+        "answers": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "required": ["rulesEvaluated", "rulesFired", "vetoes", "disposition"],
+      "properties": {
+        "rulesEvaluated": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "rulesFired": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "vetoes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "disposition": { "type": "string", "enum": ["allow", "block", "review", "defer"] }
+      },
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": "object",
+      "required": ["candidateActions"],
+      "properties": {
+        "recommendedAction": { "type": "string" },
+        "selectedAction": { "type": "string" },
+        "candidateActions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["action", "status"],
+            "properties": {
+              "action": { "type": "string" },
+              "status": { "type": "string", "enum": ["recommended", "selected", "rejected", "vetoed", "unavailable"] },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "explanation": {
+      "type": "object",
+      "required": ["summary", "factors", "knownUnknowns"],
+      "properties": {
+        "summary": { "type": "string" },
+        "factors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["factorId", "source", "direction", "statement", "evidenceRefs"],
+            "properties": {
+              "factorId": { "type": "string" },
+              "source": { "type": "string", "enum": ["observation", "jev", "policy", "memory", "outcome", "human"] },
+              "direction": { "type": "string", "enum": ["supports", "opposes", "vetoes", "qualifies"] },
+              "statement": { "type": "string" },
+              "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+              "evidenceRefs": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "knownUnknowns": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "sensitivity": { "type": "string", "enum": ["public", "internal", "restricted"] },
+    "reviewStatus": { "type": "string", "enum": ["unreviewed", "machine-checked", "human-reviewed", "disputed"] },
+    "secretScanResult": { "type": "object" },
+    "integrity": {
+      "type": "object",
+      "required": ["payloadHash"],
+      "properties": { "payloadHash": { "type": "string" } },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

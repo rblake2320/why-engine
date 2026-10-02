@@ -255,19 +255,28 @@ export function recallCases(input: RecallQuery): RecallResult {
   }, 0);
 
   const matches = scored
-    .map(({ whyCase, score, matched }) => ({
-      caseId: whyCase.caseId,
-      title: whyCase.title,
-      score: maxPossible > 0 ? Number((score / maxPossible).toFixed(4)) : 0,
-      matchedTerms: Array.from(new Set(matched)).sort(),
-      rootCause: whyCase.rootCause,
-      whyFixWorked: whyCase.whyFixWorked,
-      preventNextTime: whyCase.preventNextTime,
-      generalizablePattern: whyCase.generalizablePattern,
-      tags: whyCase.tags ?? [],
-      sensitivity: whyCase.sensitivity,
-      createdAt: whyCase.createdAt
-    }))
+    .map(({ whyCase, score, matched }) => {
+      const matchedTerms = Array.from(new Set(matched)).sort();
+      const tfIdfScore = maxPossible > 0 ? score / maxPossible : 0;
+      // A single generic overlap must not look like a strong match merely
+      // because it is the only query term present anywhere in a small corpus.
+      // Coverage preserves strong exact-token recall while discounting records
+      // that explain only a small fraction of a longer symptom description.
+      const queryCoverage = matchedTerms.length / queryTokens.length;
+      return {
+        caseId: whyCase.caseId,
+        title: whyCase.title,
+        score: Number((tfIdfScore * queryCoverage).toFixed(4)),
+        matchedTerms,
+        rootCause: whyCase.rootCause,
+        whyFixWorked: whyCase.whyFixWorked,
+        preventNextTime: whyCase.preventNextTime,
+        generalizablePattern: whyCase.generalizablePattern,
+        tags: whyCase.tags ?? [],
+        sensitivity: whyCase.sensitivity,
+        createdAt: whyCase.createdAt
+      };
+    })
     .filter((m) => m.score >= minScore)
     .sort((a, b) => b.score - a.score || a.createdAt.localeCompare(b.createdAt))
     .slice(0, limit);

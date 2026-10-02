@@ -153,8 +153,12 @@ function isLockStale(lockDir: string, staleMs: number): boolean {
     const stat = fs.statSync(lockDir);
     olderThanThreshold = Date.now() - stat.mtimeMs > staleMs;
   } catch {
-    // Lock vanished between mkdir failure and stat: treat as breakable.
-    return true;
+    // The lock vanished between our failed mkdir and this stat. Do NOT report
+    // it as stale: another waiter may already have acquired a fresh lock at
+    // the same pathname, and an unconditional rm would steal that new lock.
+    // Returning false makes the caller retry acquisition without deleting
+    // anything it does not own.
+    return false;
   }
   if (!olderThanThreshold) {
     return false;

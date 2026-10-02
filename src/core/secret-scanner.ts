@@ -12,7 +12,7 @@ const SECRET_RULES: Array<{ id: string; description: string; regex: RegExp }> = 
   {
     id: "authorization-header",
     description: "Authorization header",
-    regex: /authorization\s*[:=]\s*[^\n\r]+/gi
+    regex: /\bauthorization\s*[:=]\s*(?:bearer|basic)\s+[A-Za-z0-9+/_=.-]+/gi
   },
   {
     id: "cookie-header",
